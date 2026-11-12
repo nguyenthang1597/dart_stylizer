@@ -73,7 +73,7 @@ Future<void> runCli(List<String> arguments) async {
       return;
     }
 
-    final results = <String, (String, String)>{};
+    final changedFiles = <String, String>{};
     for (final path in paths.toList()..sort()) {
       final original = await File(path).readAsString();
       final parsed = parseString(content: original, throwIfDiagnostics: false);
@@ -84,18 +84,15 @@ Future<void> runCli(List<String> arguments) async {
           'Could not parse $path:$line: ${error.message}',
         );
       }
-      final organized = organizer.organize(original);
+      final organized = organizer.organizeParsed(original, parsed.unit);
       final formatted = formatter.format(organized, uri: path);
-      results[path] = (original, formatted);
+      if (formatted != original) changedFiles[path] = formatted;
     }
 
-    final changedPaths = results.entries
-        .where((entry) => entry.value.$1 != entry.value.$2)
-        .map((entry) => entry.key)
-        .toList();
+    final changedPaths = changedFiles.keys.toList()..sort();
     if (options['write'] as bool) {
       for (final path in changedPaths) {
-        await File(path).writeAsString(results[path]!.$2);
+        await File(path).writeAsString(changedFiles[path]!);
         stdout.writeln('Organized $path');
       }
     } else if (options['check'] as bool) {
@@ -106,7 +103,7 @@ Future<void> runCli(List<String> arguments) async {
     } else {
       for (final path in changedPaths) {
         stdout.writeln('--- $path');
-        stdout.write(results[path]!.$2);
+        stdout.write(changedFiles[path]!);
       }
     }
   } on Object catch (error) {

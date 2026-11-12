@@ -11,7 +11,13 @@ class DartOrganizer {
   String organize(String source) {
     final parsed = parseString(content: source, throwIfDiagnostics: false);
     if (parsed.errors.isNotEmpty) return source;
-    final unit = parsed.unit;
+    return organizeParsed(source, parsed.unit);
+  }
+
+  /// Organizes [source] using an already parsed compilation unit.
+  ///
+  /// The caller must ensure [unit] was parsed from [source] without errors.
+  String organizeParsed(String source, CompilationUnit unit) {
     if (config.sortClassesWithinFile) {
       return _organizeDeclarations(source, unit);
     }
@@ -67,13 +73,7 @@ class DartOrganizer {
         edits.add(_Edit(slot.$1, slot.$2, replacement));
       }
     }
-    if (edits.isEmpty) return rewritten;
-    edits.sort((a, b) => b.start.compareTo(a.start));
-    var result = rewritten;
-    for (final edit in edits) {
-      result = result.replaceRange(edit.start, edit.end, edit.replacement);
-    }
-    return result;
+    return _applyEdits(rewritten, edits);
   }
 
   bool _isOrganizable(AstNode node) =>
@@ -161,13 +161,7 @@ class DartOrganizer {
         edits.add(_Edit(bodyStart, bodyEnd, replacement));
       }
     }
-    if (edits.isEmpty) return source;
-    edits.sort((a, b) => b.start.compareTo(a.start));
-    var result = source;
-    for (final edit in edits) {
-      result = result.replaceRange(edit.start, edit.end, edit.replacement);
-    }
-    return result;
+    return _applyEdits(source, edits);
   }
 
   List<_MemberChunk> _order(List<_MemberChunk> input) {
@@ -227,6 +221,24 @@ class DartOrganizer {
       ..sort((a, b) => a.originalIndex.compareTo(b.originalIndex));
     output.addAll(remaining);
     return output;
+  }
+
+  String _applyEdits(String source, List<_Edit> edits) {
+    if (edits.isEmpty) return source;
+    edits.sort((a, b) => a.start.compareTo(b.start));
+    final output = StringBuffer();
+    var cursor = 0;
+    for (final edit in edits) {
+      if (edit.start < cursor) {
+        throw StateError('Source edits overlap.');
+      }
+      output
+        ..write(source.substring(cursor, edit.start))
+        ..write(edit.replacement);
+      cursor = edit.end;
+    }
+    output.write(source.substring(cursor));
+    return output.toString();
   }
 
   String _category(ClassMember member) {
