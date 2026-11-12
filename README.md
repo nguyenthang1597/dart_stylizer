@@ -27,6 +27,13 @@ on Windows). You can choose a different output path:
 dart run tool/build_binary.dart dist/dart_stylizer
 ```
 
+## GitHub Releases
+
+GitHub Actions runs formatting checks, analysis, and tests on pushes and pull
+requests. Pushing a version tag such as `v0.1.0` also builds native executables
+for Linux, Windows, and macOS, then publishes them with a `SHA256SUMS` file in a
+GitHub Release.
+
 ## Usage
 
 ```sh
