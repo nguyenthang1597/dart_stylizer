@@ -12,6 +12,21 @@ A configurable command-line tool for organizing members inside Dart classes.
 dart pub get
 ```
 
+## Build a standalone executable
+
+Build the CLI for the current operating system and architecture:
+
+```sh
+dart run tool/build_binary.dart
+```
+
+The executable is written to `build/dart_stylizer` (`build/dart_stylizer.exe`
+on Windows). You can choose a different output path:
+
+```sh
+dart run tool/build_binary.dart dist/dart_stylizer
+```
+
 ## Usage
 
 ```sh
