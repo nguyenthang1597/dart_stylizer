@@ -26,7 +26,7 @@ The tool must preserve the original behavior of the source code. It should only 
 ## 2. Technology Stack
 
 - Language: Dart
-- Minimum SDK: Dart 3.3
+- Minimum SDK: Dart 3.5
 - AST parsing: `package:analyzer`
 - CLI argument parsing: `package:args`
 - File matching: `package:glob`

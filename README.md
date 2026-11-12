@@ -4,7 +4,7 @@ A configurable command-line tool for organizing members inside Dart classes.
 
 ## Requirements
 
-- Dart SDK 3.3 or later
+- Dart SDK 3.5 or later
 
 ## Install dependencies
 
@@ -28,8 +28,10 @@ dart run dart_stylizer --check lib/**/*.dart
 dart run dart_stylizer --config dart_stylizer.json --write lib/**/*.dart
 ```
 
-The default mode is a preview: it never modifies files. Use `--write` to apply
-changes. `--check` is intended for CI.
+The default mode is a preview: it never modifies files. Organized source is
+formatted with `package:dart_style` before previewing, checking, or writing, so
+`--check` detects both member-ordering and Dart formatting changes. Use `--write`
+to apply the result; `--check` is intended for CI.
 
 ## Configuration
 

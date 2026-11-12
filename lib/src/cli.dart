@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:args/args.dart';
+import 'package:dart_style/dart_style.dart';
 import 'package:glob/glob.dart';
 import 'package:glob/list_local_fs.dart';
 import 'package:path/path.dart' as p;
@@ -44,6 +45,9 @@ Future<void> runCli(List<String> arguments) async {
   try {
     final config = StylizerConfig.load(options['config'] as String?);
     final organizer = DartOrganizer(config);
+    final formatter = DartFormatter(
+      languageVersion: DartFormatter.latestLanguageVersion,
+    );
     final paths = <String>{};
     final unmatchedPatterns = <String>[];
     for (final pattern in options.rest) {
@@ -80,7 +84,9 @@ Future<void> runCli(List<String> arguments) async {
           'Could not parse $path:$line: ${error.message}',
         );
       }
-      results[path] = (original, organizer.organize(original));
+      final organized = organizer.organize(original);
+      final formatted = formatter.format(organized, uri: path);
+      results[path] = (original, formatted);
     }
 
     final changedPaths = results.entries
