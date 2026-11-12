@@ -27,12 +27,46 @@ on Windows). You can choose a different output path:
 dart run tool/build_binary.dart dist/dart_stylizer
 ```
 
+## Install or update a standalone executable
+
+The installers download release assets directly over HTTPS and verify them with
+`SHA256SUMS`; the repository and release assets must be public for these
+unauthenticated downloads to succeed.
+
+From a source checkout, install the latest release on Linux x64 or macOS
+ARM64 with:
+
+```sh
+sh scripts/install.sh
+```
+
+The installer places `dart_stylizer` in `~/.local/bin`, verifies the download
+against the release's `SHA256SUMS`, and replaces an existing installation when
+rerun. Pin a specific release or choose another install directory with:
+
+```sh
+sh scripts/install.sh --version v0.2.0 --install-dir "$HOME/.local/bin"
+```
+
+On Windows x64, run the PowerShell installer:
+
+```powershell
+.\scripts\install.ps1
+.\scripts\install.ps1 -Version v0.2.0
+```
+
+It installs `dart_stylizer.exe` under `%LOCALAPPDATA%\Programs\DartStylizer` by
+default and verifies the checksum before replacing the existing executable.
+Add your chosen install directory to `PATH` if you want to invoke the command
+without its full path. The current release provides Linux x64, macOS ARM64, and
+Windows x64 binaries.
+
 ## GitHub Releases
 
 GitHub Actions runs formatting checks, analysis, and tests on pushes and pull
-requests. Pushing a version tag such as `v0.1.0` also builds native executables
-for Linux, Windows, and macOS, then publishes them with a `SHA256SUMS` file in a
-GitHub Release.
+requests. Pushing a version tag such as `v0.2.0` also builds native executables
+for Linux, Windows, and macOS, then publishes the executables, `install.sh`,
+`install.ps1`, and a `SHA256SUMS` file in a GitHub Release.
 
 ## Usage
 
