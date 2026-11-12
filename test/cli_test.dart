@@ -43,6 +43,26 @@ void main() {
       expect(exitCode, 0);
     });
 
+    test('preserves each file newline style when processing concurrently',
+        () async {
+      final lfFile = File('${directory.path}/lf.dart');
+      final crlfFile = File('${directory.path}/crlf.dart');
+      await lfFile.writeAsString(
+        'class Example {\n  int z=0;\n  int a=0;\n}\n',
+      );
+      await crlfFile.writeAsString(
+        'class Example {\r\n  int z=0;\r\n  int a=0;\r\n}\r\n',
+      );
+
+      await runCli(['--write', lfFile.path, crlfFile.path]);
+
+      final lf = await lfFile.readAsString();
+      final crlf = await crlfFile.readAsString();
+      expect(lf, isNot(contains('\r')));
+      expect(crlf.replaceAll('\r\n', ''), isNot(contains('\n')));
+      expect(crlf, contains('int a = 0;\r\n'));
+    });
+
     test('does not write any files if a matched Dart file cannot be parsed',
         () async {
       final valid = File('${directory.path}/a.dart');

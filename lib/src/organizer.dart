@@ -24,23 +24,23 @@ class DartOrganizer {
     return _organizeNodes(source, unit);
   }
 
-  String _organizeNodes(String source, CompilationUnit unit) {
-    final nodes = <AstNode>[];
-    for (final declaration in unit.declarations) {
-      if (_isOrganizable(declaration)) nodes.add(declaration);
-    }
-    return _rewrite(source, nodes);
-  }
+  String _organizeNodes(String source, CompilationUnit unit) =>
+      _rewrite(source, unit.declarations.where(_isOrganizable));
 
   String _organizeDeclarations(String source, CompilationUnit unit) {
-    final rewritten = _rewrite(source, [
-      for (final declaration in unit.declarations)
-        if (_isOrganizable(declaration)) declaration,
-    ]);
-    final reparsed = parseString(content: rewritten, throwIfDiagnostics: false);
-    if (reparsed.errors.isNotEmpty) return source;
-
-    final declarations = reparsed.unit.declarations;
+    final rewritten = _rewrite(
+      source,
+      unit.declarations.where(_isOrganizable),
+    );
+    final List<CompilationUnitMember> declarations;
+    if (rewritten == source) {
+      declarations = unit.declarations;
+    } else {
+      final reparsed =
+          parseString(content: rewritten, throwIfDiagnostics: false);
+      if (reparsed.errors.isNotEmpty) return source;
+      declarations = reparsed.unit.declarations;
+    }
     final slots = <(int, int, String, String, int)>[];
     for (var i = 0; i < declarations.length; i++) {
       final declaration = declarations[i];
@@ -80,8 +80,7 @@ class DartOrganizer {
       node is ClassDeclaration ||
       (config.processEnumsLikeClasses && node is EnumDeclaration) ||
       (config.processEnumsLikeClasses && node is MixinDeclaration);
-  String _rewrite(String source, List<AstNode> declarations) {
-    if (declarations.isEmpty) return source;
+  String _rewrite(String source, Iterable<AstNode> declarations) {
     final edits = <_Edit>[];
     for (final declaration in declarations) {
       final members = switch (declaration) {
@@ -121,14 +120,15 @@ class DartOrganizer {
         final member = sortableMembers[i];
         final start = _leadingCommentStart(source, member.offset, bodyStart);
         final end = member.end;
+        final info = _memberInfo(member);
         chunks.add(_MemberChunk(
           source.substring(start, end),
-          _category(member),
-          _sortName(member),
+          info.category,
+          info.name,
           i,
           member,
-          typeName: _sortType(member),
-          isGetter: member is MethodDeclaration && member.isGetter,
+          typeName: info.typeName,
+          isGetter: info.isGetter,
         ));
       }
       if (chunks.any((chunk) => chunk.category == 'unclassified')) continue;
@@ -241,33 +241,59 @@ class DartOrganizer {
     return output.toString();
   }
 
-  String _category(ClassMember member) {
+  ({String category, String name, String typeName, bool isGetter}) _memberInfo(
+    ClassMember member,
+  ) {
     if (member is ConstructorDeclaration) {
-      return member.name == null ? 'public-constructor' : 'named-constructors';
+      return (
+        category:
+            member.name == null ? 'public-constructor' : 'named-constructors',
+        name: member.name?.lexeme ?? '',
+        typeName: '',
+        isGetter: false,
+      );
     }
     if (member is FieldDeclaration) {
       final name = member.fields.variables.map((v) => v.name.lexeme).join('_');
       final isPrivate = name.startsWith('_');
-      if (_hasOverride(member)) return 'public-override-variables';
-      if (member.isStatic) {
-        return isPrivate
-            ? 'private-static-variables'
-            : 'public-static-variables';
-      }
-      return isPrivate
-          ? 'private-instance-variables'
-          : 'public-instance-variables';
+      final category = _hasOverride(member)
+          ? 'public-override-variables'
+          : member.isStatic
+              ? isPrivate
+                  ? 'private-static-variables'
+                  : 'public-static-variables'
+              : isPrivate
+                  ? 'private-instance-variables'
+                  : 'public-instance-variables';
+      return (
+        category: category,
+        name: name,
+        typeName: member.fields.type?.toSource() ?? 'var',
+        isGetter: false,
+      );
     }
     if (member is MethodDeclaration) {
       final name = member.name.lexeme;
-      if (name == 'build' && !member.isGetter && !member.isSetter) {
-        return 'build-method';
-      }
-      if (_hasOverride(member)) return 'public-override-methods';
-      if (name.startsWith('_')) return 'private-other-methods';
-      return 'public-other-methods';
+      final category = name == 'build' && !member.isGetter && !member.isSetter
+          ? 'build-method'
+          : _hasOverride(member)
+              ? 'public-override-methods'
+              : name.startsWith('_')
+                  ? 'private-other-methods'
+                  : 'public-other-methods';
+      return (
+        category: category,
+        name: name,
+        typeName: '',
+        isGetter: member.isGetter,
+      );
     }
-    return 'unclassified';
+    return (
+      category: 'unclassified',
+      name: '',
+      typeName: '',
+      isGetter: false,
+    );
   }
 
   bool _hasOverride(AnnotatedNode node) => node.metadata.any(
@@ -283,22 +309,6 @@ class DartOrganizer {
   int _compareByName(_MemberChunk a, _MemberChunk b) {
     final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
     return byName == 0 ? a.originalIndex.compareTo(b.originalIndex) : byName;
-  }
-
-  String _sortName(ClassMember member) {
-    if (member is ConstructorDeclaration) {
-      return member.name?.lexeme ?? '';
-    }
-    if (member is FieldDeclaration) {
-      return member.fields.variables.map((v) => v.name.lexeme).join('_');
-    }
-    if (member is MethodDeclaration) return member.name.lexeme;
-    return '';
-  }
-
-  String _sortType(ClassMember member) {
-    if (member is! FieldDeclaration) return '';
-    return member.fields.type?.toSource() ?? 'var';
   }
 
   String _joinMemberChunks(List<_MemberChunk> chunks, String source) {

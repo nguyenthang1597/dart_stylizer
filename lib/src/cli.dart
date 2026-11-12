@@ -45,22 +45,17 @@ Future<void> runCli(List<String> arguments) async {
   try {
     final config = StylizerConfig.load(options['config'] as String?);
     final organizer = DartOrganizer(config);
-    final formatter = DartFormatter(
-      languageVersion: DartFormatter.latestLanguageVersion,
-    );
     final paths = <String>{};
     final unmatchedPatterns = <String>[];
     for (final pattern in options.rest) {
-      final matches = await Glob(pattern).list().toList();
-      if (matches.isEmpty) {
-        unmatchedPatterns.add(pattern);
-        continue;
-      }
-      for (final entity in matches) {
+      var matched = false;
+      await for (final entity in Glob(pattern).list()) {
+        matched = true;
         if (entity is File && p.extension(entity.path) == '.dart') {
           paths.add(p.normalize(entity.path));
         }
       }
+      if (!matched) unmatchedPatterns.add(pattern);
     }
     if (unmatchedPatterns.isNotEmpty) {
       throw FormatException(
@@ -73,20 +68,48 @@ Future<void> runCli(List<String> arguments) async {
       return;
     }
 
+    final sortedPaths = paths.toList()..sort();
     final changedFiles = <String, String>{};
-    for (final path in paths.toList()..sort()) {
-      final original = await File(path).readAsString();
-      final parsed = parseString(content: original, throwIfDiagnostics: false);
-      if (parsed.errors.isNotEmpty) {
-        final error = parsed.errors.first;
-        final line = parsed.lineInfo.getLocation(error.offset).lineNumber;
-        throw FormatException(
-          'Could not parse $path:$line: ${error.message}',
-        );
+    final failures = <String, Object>{};
+    var nextPathIndex = 0;
+
+    Future<void> processNextFile() async {
+      while (nextPathIndex < sortedPaths.length) {
+        final path = sortedPaths[nextPathIndex++];
+        try {
+          final original = await File(path).readAsString();
+          final parsed =
+              parseString(content: original, throwIfDiagnostics: false);
+          if (parsed.errors.isNotEmpty) {
+            final error = parsed.errors.first;
+            final line = parsed.lineInfo.getLocation(error.offset).lineNumber;
+            throw FormatException(
+              'Could not parse $path:$line: ${error.message}',
+            );
+          }
+          final organized = organizer.organizeParsed(original, parsed.unit);
+          final formatter = DartFormatter(
+            languageVersion: DartFormatter.latestLanguageVersion,
+            lineEnding: _lineEnding(original),
+          );
+          final formatted = formatter.format(organized, uri: path);
+          if (formatted != original) changedFiles[path] = formatted;
+        } on Object catch (error) {
+          failures[path] = error;
+        }
       }
-      final organized = organizer.organizeParsed(original, parsed.unit);
-      final formatted = formatter.format(organized, uri: path);
-      if (formatted != original) changedFiles[path] = formatted;
+    }
+
+    const maxConcurrentFiles = 4;
+    final workerCount = sortedPaths.length < maxConcurrentFiles
+        ? sortedPaths.length
+        : maxConcurrentFiles;
+    await Future.wait(
+      List.generate(workerCount, (_) => processNextFile()),
+    );
+    if (failures.isNotEmpty) {
+      final failedPaths = failures.keys.toList()..sort();
+      throw failures[failedPaths.first]!;
     }
 
     final changedPaths = changedFiles.keys.toList()..sort();
@@ -110,4 +133,11 @@ Future<void> runCli(List<String> arguments) async {
     stderr.writeln('dart_stylizer: $error');
     exitCode = 2;
   }
+}
+
+String _lineEnding(String source) {
+  final newlineIndex = source.indexOf('\n');
+  return newlineIndex > 0 && source.codeUnitAt(newlineIndex - 1) == 13
+      ? '\r\n'
+      : '\n';
 }
