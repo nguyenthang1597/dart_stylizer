@@ -50,7 +50,16 @@ to apply the result; `--check` is intended for CI.
 
 ## Configuration
 
-Create `.dart_stylizer.json` in the working directory:
+Configuration is layered in this order: built-in defaults, global config, the
+nearest project `.dart_stylizer.json` in the current directory or an ancestor,
+then the file supplied by `--config`. Each file overrides only the options it
+contains.
+
+The global config path is `$XDG_CONFIG_HOME/dart_stylizer/config.json`, falling
+back to `$HOME/.config/dart_stylizer/config.json` on Unix-like systems. On
+Windows it is `%APPDATA%\\dart_stylizer\\config.json`.
+
+Create `.dart_stylizer.json` at your project root to share project settings:
 
 ```json
 {

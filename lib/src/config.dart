@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 const defaultMemberOrdering = <String>[
   'public-constructor',
   'named-constructors',
@@ -25,7 +27,11 @@ class StylizerConfig {
     this.sortOtherMethods = false,
   });
 
-  factory StylizerConfig.fromJson(Map<String, Object?> json) {
+  factory StylizerConfig.fromJson(
+    Map<String, Object?> json, {
+    StylizerConfig? base,
+  }) {
+    final defaults = base ?? const StylizerConfig();
     const options = <String>{
       'groupAndSortGetterMethods',
       'groupAndSortVariableTypes',
@@ -58,8 +64,8 @@ class StylizerConfig {
     if (json.containsKey('memberOrdering') && ordering is! List) {
       throw const FormatException('"memberOrdering" must be an array.');
     }
-    final members = ordering == null
-        ? defaultMemberOrdering
+    final members = !json.containsKey('memberOrdering')
+        ? defaults.memberOrdering
         : (ordering as List).map((e) {
             if (e is! String || !known.contains(e)) {
               throw FormatException('Unknown member ordering entry: $e');
@@ -79,25 +85,60 @@ class StylizerConfig {
     }
 
     return StylizerConfig(
-      groupAndSortGetterMethods: boolean('groupAndSortGetterMethods', false),
-      groupAndSortVariableTypes: boolean('groupAndSortVariableTypes', false),
+      groupAndSortGetterMethods: boolean(
+        'groupAndSortGetterMethods',
+        defaults.groupAndSortGetterMethods,
+      ),
+      groupAndSortVariableTypes: boolean(
+        'groupAndSortVariableTypes',
+        defaults.groupAndSortVariableTypes,
+      ),
       memberOrdering: members,
-      processEnumsLikeClasses: boolean('processEnumsLikeClasses', false),
-      sortClassesWithinFile: boolean('sortClassesWithinFile', false),
-      sortOtherMethods: boolean('sortOtherMethods', false),
+      processEnumsLikeClasses: boolean(
+        'processEnumsLikeClasses',
+        defaults.processEnumsLikeClasses,
+      ),
+      sortClassesWithinFile: boolean(
+        'sortClassesWithinFile',
+        defaults.sortClassesWithinFile,
+      ),
+      sortOtherMethods: boolean(
+        'sortOtherMethods',
+        defaults.sortOtherMethods,
+      ),
     );
   }
-  factory StylizerConfig.load([String? path]) {
-    final file = File(path ?? '.dart_stylizer.json');
-    if (!file.existsSync()) {
-      if (path == null) return const StylizerConfig();
-      throw FileSystemException('Configuration file does not exist', file.path);
+  factory StylizerConfig.load([String? path]) =>
+      StylizerConfig.loadWithSources(explicitPath: path);
+
+  factory StylizerConfig.loadWithSources({
+    String? explicitPath,
+    Directory? projectDirectory,
+    String? globalConfigPath,
+  }) {
+    if (explicitPath != null && !File(explicitPath).existsSync()) {
+      throw FileSystemException(
+        'Configuration file does not exist',
+        File(explicitPath).path,
+      );
     }
-    final decoded = jsonDecode(file.readAsStringSync());
-    if (decoded is! Map<String, Object?>) {
-      throw const FormatException('Configuration root must be a JSON object.');
+
+    var config = const StylizerConfig();
+    final globalPath = globalConfigPath ?? _defaultGlobalConfigPath();
+    if (globalPath != null && File(globalPath).existsSync()) {
+      config = _loadConfigFile(File(globalPath), config);
     }
-    return StylizerConfig.fromJson(decoded);
+
+    final projectConfig =
+        _findProjectConfig(projectDirectory ?? Directory.current);
+    if (projectConfig != null) {
+      config = _loadConfigFile(projectConfig, config);
+    }
+
+    if (explicitPath != null) {
+      config = _loadConfigFile(File(explicitPath), config);
+    }
+    return config;
   }
 
   final bool groupAndSortGetterMethods;
@@ -106,4 +147,53 @@ class StylizerConfig {
   final bool processEnumsLikeClasses;
   final bool sortClassesWithinFile;
   final bool sortOtherMethods;
+}
+
+StylizerConfig _loadConfigFile(File file, StylizerConfig base) {
+  final decoded = jsonDecode(file.readAsStringSync());
+  if (decoded is! Map<String, Object?>) {
+    throw const FormatException('Configuration root must be a JSON object.');
+  }
+  return StylizerConfig.fromJson(decoded, base: base);
+}
+
+File? _findProjectConfig(Directory directory) {
+  var current = directory.absolute;
+  while (true) {
+    final file = File(p.join(current.path, '.dart_stylizer.json'));
+    if (file.existsSync()) return file;
+
+    final parent = current.parent;
+    if (parent.path == current.path) return null;
+    current = parent;
+  }
+}
+
+String? _defaultGlobalConfigPath() {
+  final environment = Platform.environment;
+  String? configDirectory;
+  if (Platform.isWindows) {
+    configDirectory = environment['APPDATA'];
+    if (configDirectory == null || configDirectory.isEmpty) {
+      final home = environment['USERPROFILE'] ?? environment['HOME'];
+      if (home != null && home.isNotEmpty) {
+        configDirectory = p.join(home, 'AppData', 'Roaming');
+      }
+    }
+  } else {
+    final xdgConfigHome = environment['XDG_CONFIG_HOME'];
+    if (xdgConfigHome != null &&
+        xdgConfigHome.isNotEmpty &&
+        p.isAbsolute(xdgConfigHome)) {
+      configDirectory = xdgConfigHome;
+    } else {
+      final home = environment['HOME'];
+      if (home != null && home.isNotEmpty) {
+        configDirectory = p.join(home, '.config');
+      }
+    }
+  }
+
+  if (configDirectory == null || configDirectory.isEmpty) return null;
+  return p.join(configDirectory, 'dart_stylizer', 'config.json');
 }

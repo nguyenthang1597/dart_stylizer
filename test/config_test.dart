@@ -47,6 +47,47 @@ void main() {
       expect(config.memberOrdering, ['build-method', 'public-constructor']);
     });
 
+    test('layers global, project, and explicit configuration', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'dart_stylizer_config_layers',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final projectDirectory = Directory('${directory.path}/project/nested');
+      await projectDirectory.create(recursive: true);
+
+      final globalFile = File('${directory.path}/global.json');
+      await globalFile.writeAsString('''
+{
+  "groupAndSortGetterMethods": true,
+  "sortOtherMethods": true,
+  "memberOrdering": ["build-method"]
+}
+''');
+      final projectFile = File(
+        '${directory.path}/project/.dart_stylizer.json',
+      );
+      await projectFile.writeAsString('''
+{
+  "processEnumsLikeClasses": true,
+  "sortOtherMethods": false
+}
+''');
+      final explicitFile = File('${directory.path}/custom.json');
+      await explicitFile.writeAsString('{"sortClassesWithinFile": true}');
+
+      final config = StylizerConfig.loadWithSources(
+        explicitPath: explicitFile.path,
+        projectDirectory: projectDirectory,
+        globalConfigPath: globalFile.path,
+      );
+
+      expect(config.groupAndSortGetterMethods, isTrue);
+      expect(config.sortOtherMethods, isFalse);
+      expect(config.processEnumsLikeClasses, isTrue);
+      expect(config.sortClassesWithinFile, isTrue);
+      expect(config.memberOrdering, ['build-method']);
+    });
+
     test('rejects invalid JSON and missing explicit config files', () async {
       final directory = await Directory.systemTemp.createTemp(
         'dart_stylizer_config_test',
