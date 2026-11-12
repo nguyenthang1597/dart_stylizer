@@ -1,0 +1,20 @@
+{
+  "groupAndSortGetterMethods": false,
+  "groupAndSortVariableTypes": false,
+  "memberOrdering": [
+    "public-constructor",
+    "named-constructors",
+    "public-static-variables",
+    "public-instance-variables",
+    "public-override-variables",
+    "private-static-variables",
+    "private-instance-variables",
+    "public-override-methods",
+    "public-other-methods",
+    "private-other-methods",
+    "build-method"
+  ],
+  "processEnumsLikeClasses": false,
+  "sortClassesWithinFile": false,
+  "sortOtherMethods": false
+}
