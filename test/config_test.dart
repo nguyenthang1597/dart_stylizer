@@ -63,9 +63,7 @@ void main() {
   "memberOrdering": ["build-method"]
 }
 ''');
-      final projectFile = File(
-        '${directory.path}/project/.dart_stylizer.json',
-      );
+      final projectFile = File('${directory.path}/project/.dart_stylizer.json');
       await projectFile.writeAsString('''
 {
   "processEnumsLikeClasses": true,

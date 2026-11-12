@@ -17,14 +17,22 @@ class Example {
 }
 ''';
       final output = const DartOrganizer(StylizerConfig()).organize(input);
-      expect(output.indexOf('Example();'),
-          lessThan(output.indexOf('Example.named();')));
-      expect(output.indexOf('static int aStatic'),
-          lessThan(output.indexOf('static int b')));
       expect(
-          output.indexOf('int a = 0'), lessThan(output.indexOf('int z = 0')));
+        output.indexOf('Example();'),
+        lessThan(output.indexOf('Example.named();')),
+      );
       expect(
-          output.indexOf('void zebra'), lessThan(output.indexOf('void alpha')));
+        output.indexOf('static int aStatic'),
+        lessThan(output.indexOf('static int b')),
+      );
+      expect(
+        output.indexOf('int a = 0'),
+        lessThan(output.indexOf('int z = 0')),
+      );
+      expect(
+        output.indexOf('void zebra'),
+        lessThan(output.indexOf('void alpha')),
+      );
     });
 
     test('keeps other methods in original order by default', () {
@@ -59,9 +67,8 @@ class Example {
   void a() {}
 }
 ''';
-      final output = const DartOrganizer(
-        StylizerConfig(sortOtherMethods: true),
-      ).organize(input);
+      final output = const DartOrganizer(StylizerConfig(sortOtherMethods: true))
+          .organize(input);
       expect(output.indexOf('void a'), lessThan(output.indexOf('void z')));
     });
 
@@ -99,8 +106,10 @@ class Example {
         output.indexOf('Alpha documentation'),
         lessThan(output.indexOf('Zulu documentation')),
       );
-      expect(output,
-          contains('/// Alpha documentation.\n  @override\n  void alpha()'));
+      expect(
+        output,
+        contains('/// Alpha documentation.\n  @override\n  void alpha()'),
+      );
     });
 
     test('leaves invalid Dart source unchanged', () {

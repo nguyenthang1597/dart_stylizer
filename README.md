@@ -4,7 +4,7 @@ A configurable command-line tool for organizing members inside Dart classes.
 
 ## Requirements
 
-- Dart SDK 3.5 or later
+- Dart SDK 3.13 or later
 
 ## Install dependencies
 

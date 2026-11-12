@@ -28,16 +28,15 @@ class DartOrganizer {
       _rewrite(source, unit.declarations.where(_isOrganizable));
 
   String _organizeDeclarations(String source, CompilationUnit unit) {
-    final rewritten = _rewrite(
-      source,
-      unit.declarations.where(_isOrganizable),
-    );
+    final rewritten = _rewrite(source, unit.declarations.where(_isOrganizable));
     final List<CompilationUnitMember> declarations;
     if (rewritten == source) {
       declarations = unit.declarations;
     } else {
-      final reparsed =
-          parseString(content: rewritten, throwIfDiagnostics: false);
+      final reparsed = parseString(
+        content: rewritten,
+        throwIfDiagnostics: false,
+      );
       if (reparsed.errors.isNotEmpty) return source;
       declarations = reparsed.unit.declarations;
     }
@@ -61,7 +60,8 @@ class DartOrganizer {
     }
     if (slots.length < 2) return rewritten;
 
-    final sorted = [...slots]..sort((a, b) {
+    final sorted = [...slots]
+      ..sort((a, b) {
         final byName = a.$4.toLowerCase().compareTo(b.$4.toLowerCase());
         return byName == 0 ? a.$5.compareTo(b.$5) : byName;
       });
@@ -84,35 +84,38 @@ class DartOrganizer {
     final edits = <_Edit>[];
     for (final declaration in declarations) {
       final members = switch (declaration) {
-        final ClassDeclaration value => value.members,
+        final ClassDeclaration value => value.body.members,
         final EnumDeclaration value when config.processEnumsLikeClasses =>
-          value.members,
+          value.body.members,
         final MixinDeclaration value when config.processEnumsLikeClasses =>
-          value.members,
+          value.body.members,
         _ => const <ClassMember>[],
       };
       final sortableMembers = declaration is EnumDeclaration
           ? members
-              .where((member) => member is! EnumConstantDeclaration)
-              .toList()
+                .where((member) => member is! EnumConstantDeclaration)
+                .toList()
           : members;
       if (sortableMembers.length < 2) continue;
-      final open = declaration is ClassDeclaration
-          ? declaration.leftBracket
-          : declaration is EnumDeclaration
-              ? declaration.leftBracket
-              : (declaration as MixinDeclaration).leftBracket;
-      final close = declaration is ClassDeclaration
-          ? declaration.rightBracket
-          : declaration is EnumDeclaration
-              ? declaration.rightBracket
-              : (declaration as MixinDeclaration).rightBracket;
+      final declarationBody = switch (declaration) {
+        final ClassDeclaration value => value.body,
+        final EnumDeclaration value => value.body,
+        final MixinDeclaration value => value.body,
+        _ => null,
+      };
+      final open = switch (declarationBody) {
+        final BlockClassBody value => value.leftBracket,
+        final BlockEnumBody value => value.leftBracket,
+        _ => null,
+      };
+      final close = switch (declarationBody) {
+        final BlockClassBody value => value.rightBracket,
+        final BlockEnumBody value => value.rightBracket,
+        _ => null,
+      };
+      if (open == null || close == null) continue;
       final bodyStart = declaration is EnumDeclaration
-          ? _leadingCommentStart(
-              source,
-              sortableMembers.first.offset,
-              open.end,
-            )
+          ? _leadingCommentStart(source, sortableMembers.first.offset, open.end)
           : open.end;
       final bodyEnd = close.offset;
       final chunks = <_MemberChunk>[];
@@ -121,15 +124,17 @@ class DartOrganizer {
         final start = _leadingCommentStart(source, member.offset, bodyStart);
         final end = member.end;
         final info = _memberInfo(member);
-        chunks.add(_MemberChunk(
-          source.substring(start, end),
-          info.category,
-          info.name,
-          i,
-          member,
-          typeName: info.typeName,
-          isGetter: info.isGetter,
-        ));
+        chunks.add(
+          _MemberChunk(
+            source.substring(start, end),
+            info.category,
+            info.name,
+            i,
+            member,
+            typeName: info.typeName,
+            isGetter: info.isGetter,
+          ),
+        );
       }
       if (chunks.any((chunk) => chunk.category == 'unclassified')) continue;
       final ordered = _order(chunks);
@@ -175,12 +180,14 @@ class DartOrganizer {
       if (category == 'public-other-methods' &&
           !config.memberOrdering.contains('private-other-methods')) {
         values.addAll(
-            buckets.remove('private-other-methods') ?? <_MemberChunk>[]);
+          buckets.remove('private-other-methods') ?? <_MemberChunk>[],
+        );
         if (!config.sortOtherMethods) {
           values.sort((a, b) => a.originalIndex.compareTo(b.originalIndex));
         }
       }
-      final shouldSort = (category != 'public-other-methods' &&
+      final shouldSort =
+          (category != 'public-other-methods' &&
               category != 'private-other-methods') ||
           config.sortOtherMethods;
       if (config.groupAndSortGetterMethods &&
@@ -206,8 +213,8 @@ class DartOrganizer {
             category.endsWith('variables')) {
           values.sort((a, b) {
             final byType = a.typeName.toLowerCase().compareTo(
-                  b.typeName.toLowerCase(),
-                );
+              b.typeName.toLowerCase(),
+            );
             return byType == 0 ? _compareByName(a, b) : byType;
           });
         } else {
@@ -246,8 +253,9 @@ class DartOrganizer {
   ) {
     if (member is ConstructorDeclaration) {
       return (
-        category:
-            member.name == null ? 'public-constructor' : 'named-constructors',
+        category: member.name == null
+            ? 'public-constructor'
+            : 'named-constructors',
         name: member.name?.lexeme ?? '',
         typeName: '',
         isGetter: false,
@@ -259,12 +267,12 @@ class DartOrganizer {
       final category = _hasOverride(member)
           ? 'public-override-variables'
           : member.isStatic
-              ? isPrivate
-                  ? 'private-static-variables'
-                  : 'public-static-variables'
-              : isPrivate
-                  ? 'private-instance-variables'
-                  : 'public-instance-variables';
+          ? isPrivate
+                ? 'private-static-variables'
+                : 'public-static-variables'
+          : isPrivate
+          ? 'private-instance-variables'
+          : 'public-instance-variables';
       return (
         category: category,
         name: name,
@@ -277,10 +285,10 @@ class DartOrganizer {
       final category = name == 'build' && !member.isGetter && !member.isSetter
           ? 'build-method'
           : _hasOverride(member)
-              ? 'public-override-methods'
-              : name.startsWith('_')
-                  ? 'private-other-methods'
-                  : 'public-other-methods';
+          ? 'public-override-methods'
+          : name.startsWith('_')
+          ? 'private-other-methods'
+          : 'public-other-methods';
       return (
         category: category,
         name: name,
@@ -288,17 +296,11 @@ class DartOrganizer {
         isGetter: member.isGetter,
       );
     }
-    return (
-      category: 'unclassified',
-      name: '',
-      typeName: '',
-      isGetter: false,
-    );
+    return (category: 'unclassified', name: '', typeName: '', isGetter: false);
   }
 
-  bool _hasOverride(AnnotatedNode node) => node.metadata.any(
-        (annotation) => annotation.name.name == 'override',
-      );
+  bool _hasOverride(AnnotatedNode node) =>
+      node.metadata.any((annotation) => annotation.name.name == 'override');
   bool _sameIdentity(List<_MemberChunk> a, List<_MemberChunk> b) {
     for (var i = 0; i < a.length; i++) {
       if (!identical(a[i].node, b[i].node)) return false;
@@ -372,11 +374,11 @@ class DartOrganizer {
       RegExp(r'^[\r\n]*').firstMatch(value)!.group(0)!;
   String _lineEnding(String source) => source.contains('\r\n') ? '\r\n' : '\n';
   String _declarationName(AstNode declaration) => switch (declaration) {
-        final ClassDeclaration value => value.name.lexeme,
-        final EnumDeclaration value => value.name.lexeme,
-        final MixinDeclaration value => value.name.lexeme,
-        _ => '',
-      };
+    final ClassDeclaration value => value.namePart.typeName.lexeme,
+    final EnumDeclaration value => value.namePart.typeName.lexeme,
+    final MixinDeclaration value => value.name.lexeme,
+    _ => '',
+  };
 }
 
 class _MemberChunk {

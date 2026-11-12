@@ -66,15 +66,18 @@ class StylizerConfig {
     }
     final members = !json.containsKey('memberOrdering')
         ? defaults.memberOrdering
-        : (ordering as List).map((e) {
-            if (e is! String || !known.contains(e)) {
-              throw FormatException('Unknown member ordering entry: $e');
-            }
-            return e;
-          }).toList(growable: false);
+        : (ordering as List)
+              .map((e) {
+                if (e is! String || !known.contains(e)) {
+                  throw FormatException('Unknown member ordering entry: $e');
+                }
+                return e;
+              })
+              .toList(growable: false);
     if (members.toSet().length != members.length) {
       throw const FormatException(
-          '"memberOrdering" cannot contain duplicates.');
+        '"memberOrdering" cannot contain duplicates.',
+      );
     }
 
     bool boolean(String key, bool fallback) {
@@ -102,10 +105,7 @@ class StylizerConfig {
         'sortClassesWithinFile',
         defaults.sortClassesWithinFile,
       ),
-      sortOtherMethods: boolean(
-        'sortOtherMethods',
-        defaults.sortOtherMethods,
-      ),
+      sortOtherMethods: boolean('sortOtherMethods', defaults.sortOtherMethods),
     );
   }
   factory StylizerConfig.load([String? path]) =>
@@ -129,8 +129,9 @@ class StylizerConfig {
       config = _loadConfigFile(File(globalPath), config);
     }
 
-    final projectConfig =
-        _findProjectConfig(projectDirectory ?? Directory.current);
+    final projectConfig = _findProjectConfig(
+      projectDirectory ?? Directory.current,
+    );
     if (projectConfig != null) {
       config = _loadConfigFile(projectConfig, config);
     }

@@ -13,12 +13,17 @@ import 'organizer.dart';
 Future<void> runCli(List<String> arguments) async {
   final parser = ArgParser()
     ..addOption('config', abbr: 'c', help: 'Path to a JSON configuration file.')
-    ..addFlag('write',
-        abbr: 'w',
-        negatable: false,
-        help: 'Write organized source back to the input files.')
-    ..addFlag('check',
-        negatable: false, help: 'Exit with code 1 if any file would change.')
+    ..addFlag(
+      'write',
+      abbr: 'w',
+      negatable: false,
+      help: 'Write organized source back to the input files.',
+    )
+    ..addFlag(
+      'check',
+      negatable: false,
+      help: 'Exit with code 1 if any file would change.',
+    )
     ..addFlag('help', abbr: 'h', negatable: false, help: 'Show usage.');
   late ArgResults options;
   try {
@@ -31,8 +36,9 @@ Future<void> runCli(List<String> arguments) async {
   }
   if (options['help'] as bool || options.rest.isEmpty) {
     stdout.writeln('Dart Stylizer - organize class members\n');
-    stdout
-        .writeln('Usage: dart run dart_stylizer [options] <file-or-glob>...\n');
+    stdout.writeln(
+      'Usage: dart run dart_stylizer [options] <file-or-glob>...\n',
+    );
     stdout.writeln(parser.usage);
     return;
   }
@@ -78,8 +84,10 @@ Future<void> runCli(List<String> arguments) async {
         final path = sortedPaths[nextPathIndex++];
         try {
           final original = await File(path).readAsString();
-          final parsed =
-              parseString(content: original, throwIfDiagnostics: false);
+          final parsed = parseString(
+            content: original,
+            throwIfDiagnostics: false,
+          );
           if (parsed.errors.isNotEmpty) {
             final error = parsed.errors.first;
             final line = parsed.lineInfo.getLocation(error.offset).lineNumber;
@@ -104,9 +112,7 @@ Future<void> runCli(List<String> arguments) async {
     final workerCount = sortedPaths.length < maxConcurrentFiles
         ? sortedPaths.length
         : maxConcurrentFiles;
-    await Future.wait(
-      List.generate(workerCount, (_) => processNextFile()),
-    );
+    await Future.wait(List.generate(workerCount, (_) => processNextFile()));
     if (failures.isNotEmpty) {
       final failedPaths = failures.keys.toList()..sort();
       throw failures[failedPaths.first]!;

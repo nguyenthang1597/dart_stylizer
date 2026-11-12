@@ -43,38 +43,65 @@ void main() {
       expect(exitCode, 0);
     });
 
-    test('preserves each file newline style when processing concurrently',
-        () async {
-      final lfFile = File('${directory.path}/lf.dart');
-      final crlfFile = File('${directory.path}/crlf.dart');
-      await lfFile.writeAsString(
-        'class Example {\n  int z=0;\n  int a=0;\n}\n',
-      );
-      await crlfFile.writeAsString(
-        'class Example {\r\n  int z=0;\r\n  int a=0;\r\n}\r\n',
-      );
+    test('parses and formats recent Dart language syntax', () async {
+      final file = File('${directory.path}/modern.dart');
+      const original = '''
+// @dart=3.14
+class Example(int value){
+  int z=0;
+  int a=0;
+}
+''';
+      await file.writeAsString(original);
 
-      await runCli(['--write', lfFile.path, crlfFile.path]);
+      await runCli(['--write', file.path]);
 
-      final lf = await lfFile.readAsString();
-      final crlf = await crlfFile.readAsString();
-      expect(lf, isNot(contains('\r')));
-      expect(crlf.replaceAll('\r\n', ''), isNot(contains('\n')));
-      expect(crlf, contains('int a = 0;\r\n'));
+      expect(exitCode, 0);
+      final written = await file.readAsString();
+      expect(written, contains('// @dart=3.14'));
+      expect(written, contains('class Example(int value) {'));
+      expect(
+        written.indexOf('int a = 0;'),
+        lessThan(written.indexOf('int z = 0;')),
+      );
     });
 
-    test('does not write any files if a matched Dart file cannot be parsed',
-        () async {
-      final valid = File('${directory.path}/a.dart');
-      final invalid = File('${directory.path}/z.dart');
-      const original = 'class Example {\n  int z=0;\n  int a=0;\n}\n';
-      await valid.writeAsString(original);
-      await invalid.writeAsString('class Broken { int value = ; }');
+    test(
+      'preserves each file newline style when processing concurrently',
+      () async {
+        final lfFile = File('${directory.path}/lf.dart');
+        final crlfFile = File('${directory.path}/crlf.dart');
+        await lfFile.writeAsString(
+          'class Example {\n  int z=0;\n  int a=0;\n}\n',
+        );
+        await crlfFile.writeAsString(
+          'class Example {\r\n  int z=0;\r\n  int a=0;\r\n}\r\n',
+        );
 
-      await runCli(['--write', valid.path, invalid.path]);
+        await runCli(['--write', lfFile.path, crlfFile.path]);
 
-      expect(exitCode, 2);
-      expect(await valid.readAsString(), original);
-    });
+        final lf = await lfFile.readAsString();
+        final crlf = await crlfFile.readAsString();
+        expect(lf, isNot(contains('\r')));
+        expect(crlf.replaceAll('\r\n', ''), isNot(contains('\n')));
+        expect(crlf, contains('int a = 0;\r\n'));
+      },
+    );
+
+    test(
+      'does not write any files if a matched Dart file cannot be parsed',
+      () async {
+        final valid = File('${directory.path}/a.dart');
+        final invalid = File('${directory.path}/z.dart');
+        const original = 'class Example {\n  int z=0;\n  int a=0;\n}\n';
+        await valid.writeAsString(original);
+        await invalid.writeAsString('class Broken { int value = ; }');
+
+        await runCli(['--write', valid.path, invalid.path]);
+
+        expect(exitCode, 2);
+        expect(await valid.readAsString(), original);
+      },
+    );
   });
 }
