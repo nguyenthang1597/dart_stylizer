@@ -100,12 +100,12 @@ jobs:
           path: release-assets
           merge-multiple: true
 
-      - name: Include install scripts
-        run: cp scripts/install.sh scripts/install.ps1 release-assets/
+      - name: Include installer and license files
+        run: cp scripts/install.sh scripts/install.ps1 LICENSE release-assets/
 
       - name: Generate checksums
         working-directory: release-assets
-        run: sha256sum dart_stylizer-* install.sh install.ps1 > SHA256SUMS
+        run: sha256sum dart_stylizer-* install.sh install.ps1 LICENSE > SHA256SUMS
 
       - name: Create GitHub Release and upload assets
         env:

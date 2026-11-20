@@ -66,7 +66,7 @@ Windows x64 binaries.
 GitHub Actions runs formatting checks, analysis, and tests on pushes and pull
 requests. Pushing a version tag such as `v0.2.0` also builds native executables
 for Linux, Windows, and macOS, then publishes the executables, `install.sh`,
-`install.ps1`, and a `SHA256SUMS` file in a GitHub Release.
+`install.ps1`, `LICENSE`, and a `SHA256SUMS` file in a GitHub Release.
 
 ## Usage
 
@@ -149,3 +149,7 @@ classify declarations. The first implementation focuses on classes and
 optionally enums/mixins. It preserves declaration text by moving source
 ranges, but should be tested against project-specific comment and formatting
 styles before enabling `--write` across a large codebase.
+
+## License
+
+Dart Stylizer is available under the [MIT License](LICENSE).

@@ -2,6 +2,18 @@
 
 All notable changes to Dart Stylizer are documented here.
 
+## [0.3.0] - 2026-11-20
+
+### Added
+
+- Add unified-diff output for preview and check modes with the `--diff` option.
+- Add an optional `--format` flag for whole-file Dart formatting.
+- Include the MIT license in release assets and their checksum manifest.
+
+### Changed
+
+- Preserve existing source formatting by default when organizing declarations.
+
 ## [0.2.0] - 2026-11-12
 
 ### Added
@@ -28,5 +40,6 @@ All notable changes to Dart Stylizer are documented here.
 - Standalone executable builds and GitHub release artifacts for Linux, macOS,
   and Windows.
 
+[0.3.0]: https://github.com/nguyenthang1597/dart_stylizer/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/nguyenthang1597/dart_stylizer/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/nguyenthang1597/dart_stylizer/releases/tag/v0.1.0
