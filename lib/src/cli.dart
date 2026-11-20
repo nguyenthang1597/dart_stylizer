@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 
 import 'config.dart';
 import 'organizer.dart';
+import 'unified_diff.dart';
 
 Future<void> runCli(List<String> arguments) async {
   final parser = ArgParser()
@@ -23,6 +24,16 @@ Future<void> runCli(List<String> arguments) async {
       'check',
       negatable: false,
       help: 'Exit with code 1 if any file would change.',
+    )
+    ..addFlag(
+      'format',
+      negatable: false,
+      help: 'Also format the entire file with package:dart_style.',
+    )
+    ..addFlag(
+      'diff',
+      negatable: false,
+      help: 'Show unified diffs instead of full files in preview/check mode.',
     )
     ..addFlag('help', abbr: 'h', negatable: false, help: 'Show usage.');
   late ArgResults options;
@@ -44,6 +55,11 @@ Future<void> runCli(List<String> arguments) async {
   }
   if (options['write'] as bool && options['check'] as bool) {
     stderr.writeln('--write and --check cannot be used together.');
+    exitCode = 2;
+    return;
+  }
+  if (options['write'] as bool && options['diff'] as bool) {
+    stderr.writeln('--diff can only be used in preview or check mode.');
     exitCode = 2;
     return;
   }
@@ -76,6 +92,7 @@ Future<void> runCli(List<String> arguments) async {
 
     final sortedPaths = paths.toList()..sort();
     final changedFiles = <String, String>{};
+    final originalFiles = <String, String>{};
     final failures = <String, Object>{};
     var nextPathIndex = 0;
 
@@ -95,13 +112,18 @@ Future<void> runCli(List<String> arguments) async {
               'Could not parse $path:$line: ${error.message}',
             );
           }
-          final organized = organizer.organizeParsed(original, parsed.unit);
-          final formatter = DartFormatter(
-            languageVersion: DartFormatter.latestLanguageVersion,
-            lineEnding: _lineEnding(original),
-          );
-          final formatted = formatter.format(organized, uri: path);
-          if (formatted != original) changedFiles[path] = formatted;
+          var output = organizer.organizeParsed(original, parsed.unit);
+          if (options['format'] as bool) {
+            final formatter = DartFormatter(
+              languageVersion: DartFormatter.latestLanguageVersion,
+              lineEnding: _lineEnding(original),
+            );
+            output = formatter.format(output, uri: path);
+          }
+          if (output != original) {
+            changedFiles[path] = output;
+            originalFiles[path] = original;
+          }
         } on Object catch (error) {
           failures[path] = error;
         }
@@ -126,13 +148,25 @@ Future<void> runCli(List<String> arguments) async {
       }
     } else if (options['check'] as bool) {
       for (final path in changedPaths) {
-        stdout.writeln('Needs organization: $path');
+        if (options['diff'] as bool) {
+          stdout.write(
+            unifiedDiff(path, originalFiles[path]!, changedFiles[path]!),
+          );
+        } else {
+          stdout.writeln('Needs organization: $path');
+        }
       }
       if (changedPaths.isNotEmpty) exitCode = 1;
     } else {
       for (final path in changedPaths) {
-        stdout.writeln('--- $path');
-        stdout.write(changedFiles[path]!);
+        if (options['diff'] as bool) {
+          stdout.write(
+            unifiedDiff(path, originalFiles[path]!, changedFiles[path]!),
+          );
+        } else {
+          stdout.writeln('--- $path');
+          stdout.write(changedFiles[path]!);
+        }
       }
     }
   } on Object catch (error) {

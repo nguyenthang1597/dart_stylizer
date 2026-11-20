@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:dart_stylizer/dart_stylizer.dart';
 import 'package:test/test.dart';
 
+import 'package:dart_stylizer/src/unified_diff.dart';
+
 void main() {
   group('runCli', () {
     late Directory directory;
@@ -35,8 +37,8 @@ void main() {
       expect(exitCode, 0);
       final written = await file.readAsString();
       expect(written, isNot(original));
-      expect(written, contains('int a = 0;'));
-      expect(written, contains('int z = 0;'));
+      expect(written, contains('int a=0;'));
+      expect(written, contains('int z=0;'));
 
       exitCode = 0;
       await runCli(['--check', file.path]);
@@ -54,7 +56,7 @@ class Example(int value){
 ''';
       await file.writeAsString(original);
 
-      await runCli(['--write', file.path]);
+      await runCli(['--write', '--format', file.path]);
 
       expect(exitCode, 0);
       final written = await file.readAsString();
@@ -64,6 +66,72 @@ class Example(int value){
         written.indexOf('int a = 0;'),
         lessThan(written.indexOf('int z = 0;')),
       );
+    });
+
+    test(
+      'preserves unrelated formatting unless --format is requested',
+      () async {
+        final file = File('${directory.path}/source_preserving.dart');
+        const original = '''
+void untouched( ){  print("keep"); }
+
+class Example {
+  int z=0;
+  int a=0;
+}
+''';
+        await file.writeAsString(original);
+
+        await runCli(['--write', file.path]);
+
+        final written = await file.readAsString();
+        expect(written, startsWith('void untouched( ){  print("keep"); }'));
+        expect(
+          written.indexOf('int a=0;'),
+          lessThan(written.indexOf('int z=0;')),
+        );
+      },
+    );
+
+    test('diff mode is available in preview and check modes', () async {
+      final file = File('${directory.path}/diff.dart');
+      const original = '''
+class Example {
+  int z=0;
+  int a=0;
+}
+''';
+      await file.writeAsString(original);
+
+      await runCli(['--diff', file.path]);
+      expect(exitCode, 0);
+      expect(await file.readAsString(), original);
+
+      await runCli(['--check', '--diff', file.path]);
+      expect(exitCode, 1);
+      expect(await file.readAsString(), original);
+    });
+
+    test('unified diff includes changed lines and nearby context', () {
+      final diff = unifiedDiff(
+        'example.dart',
+        'before();\nvalue = 0;\nafter();\n',
+        'before();\nvalue = 1;\nafter();\n',
+      );
+
+      expect(diff, contains('--- example.dart\n+++ example.dart'));
+      expect(diff, contains('@@ -1,3 +1,3 @@'));
+      expect(diff, contains(' before();'));
+      expect(diff, contains('-value = 0;'));
+      expect(diff, contains('+value = 1;'));
+      expect(diff, contains(' after();'));
+    });
+
+    test('unified diff marks missing final newlines', () {
+      final diff = unifiedDiff('example.dart', 'old', 'new\n');
+
+      expect(diff, contains('-old\n\\ No newline at end of file'));
+      expect(diff, contains('+new'));
     });
 
     test(
@@ -84,7 +152,7 @@ class Example(int value){
         final crlf = await crlfFile.readAsString();
         expect(lf, isNot(contains('\r')));
         expect(crlf.replaceAll('\r\n', ''), isNot(contains('\n')));
-        expect(crlf, contains('int a = 0;\r\n'));
+        expect(crlf, contains('int a=0;\r\n'));
       },
     );
 

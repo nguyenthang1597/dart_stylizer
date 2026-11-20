@@ -71,23 +71,32 @@ for Linux, Windows, and macOS, then publishes the executables, `install.sh`,
 ## Usage
 
 ```sh
-# Preview changes (prints changed files to stdout)
+# Preview the organized source without modifying files
 dart run dart_stylizer lib/**/*.dart
 
-# Modify files in place
+# Preview changes as a unified diff
+dart run dart_stylizer --diff lib/**/*.dart
+
+# Modify files in place, preserving unrelated formatting
 dart run dart_stylizer --write lib/**/*.dart
 
-# Check formatting in CI (exit code 1 when changes are needed)
+# Check for organization changes in CI (exit code 1 when changes are needed)
 dart run dart_stylizer --check lib/**/*.dart
+
+# Also apply Dart formatting to the entire file
+dart run dart_stylizer --format --write lib/**/*.dart
 
 # Use a custom configuration
 dart run dart_stylizer --config dart_stylizer.json --write lib/**/*.dart
 ```
 
-The default mode is a preview: it never modifies files. Organized source is
-formatted with `package:dart_style` before previewing, checking, or writing, so
-`--check` detects both member-ordering and Dart formatting changes. Use `--write`
-to apply the result; `--check` is intended for CI.
+The default mode is a preview: it never modifies files. By default, the tool
+moves declarations and adjusts member-group spacing without reformatting the
+rest of the file. Use `--format` to also format the entire organized file with
+`package:dart_style`; with this option, `--check` detects both organization and
+formatting changes. Use `--diff` with preview or check mode to print a unified
+diff instead of full transformed files or the usual check summary. `--diff`
+cannot be combined with `--write`.
 
 ## Configuration
 
